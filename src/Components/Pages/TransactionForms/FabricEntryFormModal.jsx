@@ -1,9 +1,25 @@
 import React, { useState } from 'react';
 
+// Helper to get current date in dd/mm/yyyy hh:mm:ss AM/PM format
+function getCurrentDateTimeString() {
+  const now = new Date();
+  const pad = n => n < 10 ? '0' + n : n;
+  const day = pad(now.getDate());
+  const month = pad(now.getMonth() + 1);
+  const year = now.getFullYear();
+  let hours = now.getHours();
+  const minutes = pad(now.getMinutes());
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  const strTime = `${pad(hours)}:${minutes} ${ampm}`;
+  return `${day}/${month}/${year} ${strTime}`;
+}
+
 export default function FabricEntryFormModal({ onClose }) {
   // State for all form fields
   const [form, setForm] = useState({
-    trnNo: '', invoiceNo: '', invoiceDate: '', party: '', trnDate: '',
+    trnNo: '', invoiceNo: '', invoiceDate: getCurrentDateTimeString(), party: '', trnDate: getCurrentDateTimeString(),
     fabricFor: '', meter: '', rate: '', amount: '',
     disPercent: '', disAmt: '', cgstPercent: '', cgstValue: '',
     sgstPercent: '', sgstValue: '', disAmount: '', finalAmount: ''
@@ -85,28 +101,28 @@ export default function FabricEntryFormModal({ onClose }) {
         {/* Form Section */}
         <div className="flex-1 flex flex-col gap-4">
           {/* Party and Bill Detail */}
-          <fieldset className="border rounded p-4 mb-3">
+          <fieldset className="border rounded p-3 mb-3">
             <legend className="text-sm text-blue-900 px-2">Party and Bill Detail</legend>
-            <div className="space-beteween justify-center item-center gap-4 px-3 py-2 flex flex-wrap">
-              <label className="font-bold text-blue-900 px-2">Trn No</label>
+            <div className="space-beteween justify-center item-center gap-4 py-2 flex">
+              <label className="font-bold text-blue-900 px-1">Trn No</label>
               <input
                 name="trnNo"
                 value={form.trnNo}
                 onChange={handleChange}
                 onFocus={() => setFocusedInput({ name: 'trnNo', idx: null })}
                 onBlur={() => setFocusedInput({ name: '', idx: null })}
-                className={`border w-35 px-2 py-1 rounded ${getInputBg('trnNo')}`}
+                className={`border w-25 px-2 py-1 rounded ${getInputBg('trnNo')}`}
               />
-              <label className="font-bold text-blue-900 px-2">Invoice No</label>
+              <label className="font-bold text-blue-900 px-1">Invoice No</label>
               <input
                 name="invoiceNo"
                 value={form.invoiceNo}
                 onChange={handleChange}
                 onFocus={() => setFocusedInput({ name: 'invoiceNo', idx: null })}
                 onBlur={() => setFocusedInput({ name: '', idx: null })}
-                className={`w-35 border rounded px-2 py-1 ${getInputBg('invoiceNo')}`}
+                className={`w-25 border rounded px-2 py-1 ${getInputBg('invoiceNo')}`}
               />
-              <label className="font-bold text-blue-900 px-2">Party</label>
+              <label className="font-bold text-blue-900 px-1">Party</label>
               <select
                 name="party"
                 value={form.party}
@@ -119,10 +135,10 @@ export default function FabricEntryFormModal({ onClose }) {
                 <option value="Party1">Party 1</option>
                 <option value="Party2">Party 2</option>
               </select>
-              <label className="font-bold text-blue-900 px-2">Invoice Date</label>
-              <input name="invoiceDate" value={form.invoiceDate} onChange={handleChange} className={`w-35 border rounded px-2 py-1 ${getInputBg('invoiceDate')}`} placeholder="19-07-2025 11:29:23 PM" />
-              <label className="font-bold text-blue-900 px-2">Trn Date</label>
-              <input name="trnDate" value={form.trnDate} onChange={handleChange} className={`w-35 border rounded px-2 py-1 ${getInputBg('trnDate')}`} placeholder="19-07-2025 11:29:23 PM" />
+              <label className="font-bold text-blue-900 px-1">Invoice Date</label>
+              <input name="invoiceDate" value={form.invoiceDate} onChange={handleChange} className={`w-42 border rounded px-2 py-1 ${getInputBg('invoiceDate')}`} placeholder="19-07-2025 11:29:23 PM" />
+              <label className="font-bold text-blue-900 px-1">Trn Date</label>
+              <input name="trnDate" value={form.trnDate} onChange={handleChange} className={`w-42 border rounded px-2 py-1 ${getInputBg('trnDate')}`} placeholder="19-07-2025 11:29:23 PM" />
             </div>
           </fieldset>
           {/* Fabric Detail */}
@@ -165,7 +181,7 @@ export default function FabricEntryFormModal({ onClose }) {
                   <label className="font-bold text-blue-900">Rate</label>
                   <input name="rate" value={detail.rate} onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'rate', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
-                    className={`w-28 border rounded px-2 py-1 ${getInputBg('rate', idx)}`}/>
+                    className={`w-28 border rounded px-2 py-1 ${getInputBg('rate', idx)}`} />
                   <label className="col-span-1 font-bold text-blue-900">Amount</label>
                   <input name="amount" value={detail.amount} readOnly onChange={e => handleFabricDetailChange(idx, e)} className={`w-30 border rounded px-2 py-1 ${getInputBg('amount', idx)}`} />
                   <label className="font-bold text-blue-900">Dis%</label>
@@ -176,35 +192,37 @@ export default function FabricEntryFormModal({ onClose }) {
                   <input name="disAmt" value={detail.disAmt} readOnly onChange={e => handleFabricDetailChange(idx, e)} className={`w-18 border rounded px-2 py-1 ${getInputBg('disAmt', idx)}`} />
                   {/* <button type="button" onClick={() => handleRemoveFabricRow(idx)} className="col-span-1 px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 ml-2">Remove</button> */}
                 </div>
-                <div className="space-beteween justify-center item-center mb-3 gap-4 px-3 py-2 flex flex-wrap">
+                <div className="space-beteween mb-2 gap-4 px-4">
 
-                  <label className=" font-bold text-blue-900">CGST%"</label>
-                  <input name="cgstPercent" value={detail.cgstPercent} onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'cgstPercent', idx })}
+                  <label className=" font-bold text-center text-blue-900 px-2">CGST%</label>
+                  <input name="cgstPercent" value={detail.cgstPercent}
+                    onChange={e => handleFabricDetailChange(idx, e)}
+                    onFocus={() => setFocusedInput({ name: 'cgstPercent', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
                     className={`w-28 border rounded px-2 py-1 ${getInputBg('cgstPercent', idx)}`} />
-                  <label className=" font-bold text-blue-900">Value</label>
+                  <label className=" font-bold text-blue-900 px-3">Value</label>
                   <input name="cgstValue" value={detail.cgstValue} onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'cgstValue', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
                     className={`w-18 border rounded px-2 py-1 ${getInputBg('cgstValue', idx)}`} />
-                  <label className=" font-bold text-blue-900">SGST%"</label>
+                  <label className=" font-bold text-blue-900 px-3">SGST%</label>
                   <input name="sgstPercent" value={detail.sgstPercent} onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'sgstPercent', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
                     className={`w-28 border rounded px-2 py-1 ${getInputBg('sgstPercent', idx)}`} />
-                  <label className=" font-bold text-blue-900">Value</label>
+                  <label className=" font-bold text-blue-900 px-3">Value</label>
                   <input name="sgstValue" value={detail.sgstValue} onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'sgstValue', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
                     className={`w-18 border rounded px-2 py-1 ${getInputBg('sgstValue', idx)}`} />
 
-                  <label className=" font-bold text-blue-900">DisAmount</label>
+                  <label className=" font-bold text-blue-900 px-3">DisAmount</label>
                   <input name="disAmount" value={detail.disAmount} readOnly onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'disAmount', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
                     className={`w-30 border rounded px-2 py-1 ${getInputBg('disAmount', idx)}`} />
-                  <label className=" font-bold text-blue-900">Final Amount</label>
+                  <label className=" font-bold text-blue-900 px-3">Final Amount</label>
                   <input name="finalAmount" value={detail.finalAmount} onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'finalAmount', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
                     className={`w-30 border rounded px-2 py-1 ${getInputBg('finalAmount', idx)}`} />
 
-                  <button className="px-6 py-2 bg-white border-2 border-green-400 text-blue-900 font-bold rounded hover:bg-blue-50">Add</button>
+                  <button className="px-6 ml-6 py-2 bg-white border-2 border-green-400 text-blue-900 font-bold rounded hover:bg-blue-50">Add</button>
 
                 </div>
 
