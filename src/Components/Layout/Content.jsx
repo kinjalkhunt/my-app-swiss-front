@@ -4,7 +4,7 @@ import { router } from "../../../Router";
 
 const Content = () => {
     return (
-        <Suspense fallback={<div className="flex justify-center h-screen bg-[#1a2c38]">Loading...</div>}>
+        <Suspense fallback={<div className="flex justify-center bg-[#1a2c38]">Loading...</div>}>
             <Routes>
                 {router.map((route, index) => {
                     return (

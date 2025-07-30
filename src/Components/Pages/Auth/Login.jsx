@@ -25,7 +25,7 @@ function Login({ onLogin }) {
   };
 
   return (
-    <div className="flex justify-center items-center bg-white top-0 left-0 w-full h-screen">
+    <div className="flex justify-center items-center bg-white top-0 left-0 w-full ">
       <div className="max-w-[380px] w-[380px] p-0 border-2 border-[#bfc9d1] rounded-lg bg-[#e9ecef] shadow-md text-center">
         <Header title="Swissfort Mfg." customStyle="rounded-t-lg min-h-[30px] py-1 px-3" />
         <form onSubmit={handleSubmit} className="px-6 pt-4 pb-6">

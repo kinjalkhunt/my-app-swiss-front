@@ -4,9 +4,9 @@ import Content from "./Content";
 const DefaultLayout = () => {
 
     return (
-        <div className="flex h-screen relative">
+        <div className="">
 
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 ">
                 <Content />
             </div>
 

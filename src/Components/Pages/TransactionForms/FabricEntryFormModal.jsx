@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Helper to get current date in dd/mm/yyyy hh:mm:ss AM/PM format
 function getCurrentDateTimeString() {
@@ -16,70 +16,149 @@ function getCurrentDateTimeString() {
   return `${day}/${month}/${year} ${strTime}`;
 }
 
+// Helper to calculate fabric details
+function calculateFabricDetails(row, changedField, changedValue) {
+  const updatedRow = { ...row, [changedField]: changedValue };
+  
+  // Only calculate for non-SKU fields
+  if (changedField === 'SKU') return updatedRow;
+  
+  // Calculate Amount
+  const meter = parseFloat(changedField === "meter" ? changedValue : row.meter) || 0;
+  const rate = parseFloat(changedField === "rate" ? changedValue : row.rate) || 0;
+  const amount = meter && rate ? meter * rate : 0;
+  updatedRow.amount = amount ? amount.toFixed(2) : "";
+
+  // Calculate Discount
+  const disPercent = parseFloat(changedField === "disPercent" ? changedValue : row.disPercent) || 0;
+  const discountAmt = amount && disPercent ? (amount * disPercent / 100) : 0;
+  updatedRow.disAmt = discountAmt ? discountAmt.toFixed(2) : "";
+
+  // Calculate DisAmount (after discount)
+  const disAmount = amount - discountAmt;
+  updatedRow.disAmount = amount ? disAmount.toFixed(2) : "";
+
+  // Calculate CGST value
+  const cgstPercent = parseFloat(changedField === "cgstPercent" ? changedValue : row.cgstPercent) || 0;
+  const cgstValue = disAmount && cgstPercent ? (disAmount * cgstPercent / 100) : 0;
+  updatedRow.cgstValue = cgstValue ? cgstValue.toFixed(2) : "";
+
+  // Calculate SGST value
+  const sgstPercent = parseFloat(changedField === "sgstPercent" ? changedValue : row.sgstPercent) || 0;
+  const sgstValue = disAmount && sgstPercent ? (disAmount * sgstPercent / 100) : 0;
+  updatedRow.sgstValue = sgstValue ? sgstValue.toFixed(2) : "";
+
+  // Final Amount = DisAmount + CGST value + SGST value
+  const finalAmount = disAmount + cgstValue + sgstValue;
+  updatedRow.finalAmount = amount ? finalAmount.toFixed(2) : "";
+  
+  return updatedRow;
+}
+
+// Helper to validate if a row is complete
+function isRowComplete(row) {
+  return row.SKU && 
+         row.fabricFor && 
+         row.meter && 
+         row.rate && 
+         row.disPercent && 
+         row.cgstPercent && 
+         row.sgstPercent;
+}
+
 export default function FabricEntryFormModal({ onClose }) {
   // State for all form fields
   const [form, setForm] = useState({
-    trnNo: '', invoiceNo: '', invoiceDate: getCurrentDateTimeString(), party: '', trnDate: getCurrentDateTimeString(),
-    fabricFor: '', meter: '', rate: '', amount: '',
-    disPercent: '', disAmt: '', cgstPercent: '', cgstValue: '',
-    sgstPercent: '', sgstValue: '', disAmount: '', finalAmount: ''
+    trnNo: '', 
+    invoiceNo: '', 
+    invoiceDate: getCurrentDateTimeString(), 
+    party: '', 
+    trnDate: getCurrentDateTimeString()
   });
 
   const [fabricDetails, setFabricDetails] = useState([
     {
-      SKU: '', // Add SKU field
-      fabricFor: '', meter: '', rate: '', amount: '',
-      disPercent: '', disAmt: '', cgstPercent: '', cgstValue: '',
-      sgstPercent: '', sgstValue: '', disAmount: '', finalAmount: ''
+      id: 1,
+      SKU: '',
+      fabricFor: '', 
+      meter: '', 
+      rate: '', 
+      amount: '',
+      disPercent: '', 
+      disAmt: '', 
+      cgstPercent: '', 
+      cgstValue: '',
+      sgstPercent: '', 
+      sgstValue: '', 
+      disAmount: '', 
+      finalAmount: ''
     }
   ]);
 
+  // Separate state for table rows (completed entries)
+  const [tableRows, setTableRows] = useState([]);
+
   const [focusedInput, setFocusedInput] = useState({ name: '', idx: null });
+  const [nextId, setNextId] = useState(2);
 
   // Helper for dynamic input/select background
   function getInputBg(name, idx = null) {
     return focusedInput.name === name && focusedInput.idx === idx ? 'bg-green-200' : 'bg-white';
   }
 
-  // ...existing code...
-  const handleFabricDetailChange = (idx, e) => {
+  // Add current row to table if complete
+  const handleAddToTable = () => {
+    const currentRow = fabricDetails[0]; // Always work with the first row
+    
+    if (isRowComplete(currentRow)) {
+      // Add to table with a new ID
+      const tableRow = {
+        ...currentRow,
+        id: Date.now(), // Use timestamp for unique ID
+        sr: tableRows.length + 1
+      };
+      
+      setTableRows(prev => [...prev, tableRow]);
+      
+      // Clear the form for next entry
+      const emptyRow = {
+        id: nextId,
+        SKU: '',
+        fabricFor: '', 
+        meter: '', 
+        rate: '', 
+        amount: '',
+        disPercent: '', 
+        disAmt: '', 
+        cgstPercent: '', 
+        cgstValue: '',
+        sgstPercent: '', 
+        sgstValue: '', 
+        disAmount: '', 
+        finalAmount: ''
+      };
+      
+      setFabricDetails([emptyRow]);
+      setNextId(prev => prev + 1);
+    } else {
+      alert('Please fill all required fields before adding to table');
+    }
+  };
+
+  // Remove row from table
+  const handleRemoveTableRow = (id) => {
+    setTableRows(prev => prev.filter(row => row.id !== id));
+    // Update serial numbers
+    setTableRows(prev => prev.map((row, idx) => ({ ...row, sr: idx + 1 })));
+  };
+
+  // Handle fabric detail changes with improved calculations
+  const handleFabricDetailChange = (id, e) => {
     const { name, value } = e.target;
     setFabricDetails(prev =>
-      prev.map((row, i) => {
-        if (i !== idx) return row;
-        const updatedRow = { ...row, [name]: value };
-        // Only calculate for non-SKU fields
-        if (name !== 'SKU') {
-          // Calculate Amount
-          const meter = parseFloat(name === "meter" ? value : row.meter) || 0;
-          const rate = parseFloat(name === "rate" ? value : row.rate) || 0;
-          const amount = meter && rate ? meter * rate : 0;
-          updatedRow.amount = amount ? amount.toFixed(2) : "";
-
-          // Calculate Discount
-          const disPercent = parseFloat(name === "disPercent" ? value : row.disPercent) || 0;
-          const discountAmt = amount && disPercent ? (amount * disPercent / 100) : 0;
-          updatedRow.disAmt = discountAmt ? discountAmt.toFixed(2) : "";
-
-          // Calculate DisAmount (after discount)
-          const disAmount = amount - discountAmt;
-          updatedRow.disAmount = amount ? disAmount.toFixed(2) : "";
-
-          // Calculate CGST value
-          const cgstPercent = parseFloat(name === "cgstPercent" ? value : row.cgstPercent) || 0;
-          const cgstValue = disAmount && cgstPercent ? (disAmount * cgstPercent / 100) : 0;
-          updatedRow.cgstValue = cgstValue ? cgstValue.toFixed(2) : "";
-
-          // Calculate SGST value
-          const sgstPercent = parseFloat(name === "sgstPercent" ? value : row.sgstPercent) || 0;
-          const sgstValue = disAmount && sgstPercent ? (disAmount * sgstPercent / 100) : 0;
-          updatedRow.sgstValue = sgstValue ? sgstValue.toFixed(2) : "";
-
-          // Final Amount = DisAmount + CGST value + SGST value
-          const finalAmount = disAmount + cgstValue + sgstValue;
-          updatedRow.finalAmount = amount ? finalAmount.toFixed(2) : "";
-        }
-        return updatedRow;
+      prev.map(row => {
+        if (row.id !== id) return row;
+        return calculateFabricDetails(row, name, value);
       })
     );
   };
@@ -88,6 +167,17 @@ export default function FabricEntryFormModal({ onClose }) {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
   };
+
+  // Calculate totals from table rows
+  const totals = tableRows.reduce((acc, row) => {
+    acc.meter += parseFloat(row.meter) || 0;
+    acc.amount += parseFloat(row.amount) || 0;
+    acc.disAmt += parseFloat(row.disAmt) || 0;
+    acc.cgstValue += parseFloat(row.cgstValue) || 0;
+    acc.sgstValue += parseFloat(row.sgstValue) || 0;
+    acc.finalAmount += parseFloat(row.finalAmount) || 0;
+    return acc;
+  }, { meter: 0, amount: 0, disAmt: 0, cgstValue: 0, sgstValue: 0, finalAmount: 0 });
 
   return (
     <div className="fixed inset-0 flex items-center top-25 justify-center z-50 bg-opacity-30">
@@ -136,22 +226,35 @@ export default function FabricEntryFormModal({ onClose }) {
                 <option value="Party2">Party 2</option>
               </select>
               <label className="font-bold text-blue-900 px-1">Invoice Date</label>
-              <input name="invoiceDate" value={form.invoiceDate} onChange={handleChange} className={`w-42 border rounded px-2 py-1 ${getInputBg('invoiceDate')}`} placeholder="19-07-2025 11:29:23 PM" />
+              <input 
+                name="invoiceDate" 
+                value={form.invoiceDate} 
+                onChange={handleChange} 
+                className={`w-42 border rounded px-2 py-1 ${getInputBg('invoiceDate')}`} 
+                placeholder="19-07-2025 11:29:23 PM" 
+              />
               <label className="font-bold text-blue-900 px-1">Trn Date</label>
-              <input name="trnDate" value={form.trnDate} onChange={handleChange} className={`w-42 border rounded px-2 py-1 ${getInputBg('trnDate')}`} placeholder="19-07-2025 11:29:23 PM" />
+              <input 
+                name="trnDate" 
+                value={form.trnDate} 
+                onChange={handleChange} 
+                className={`w-42 border rounded px-2 py-1 ${getInputBg('trnDate')}`} 
+                placeholder="19-07-2025 11:29:23 PM" 
+              />
             </div>
           </fieldset>
+          
           {/* Fabric Detail */}
           <fieldset className="border rounded p-4">
             <legend className="text-sm text-blue-900 px-2">Fabric Detail</legend>
             {fabricDetails.map((detail, idx) => (
-              <div key={idx} className="mb-2 border-b pb-2 last:border-b-0 last:pb-0">
+              <div key={detail.id} className="mb-2 border-b pb-2 last:border-b-0 last:pb-0">
                 <div className="space-beteween justify-center item-center mb-3 gap-4 px-3 py-2 flex flex-wrap">
                   <label className="font-bold text-blue-900 px-2">Fabric For</label>
                   <select
                     name="fabricFor"
                     value={detail.fabricFor}
-                    onChange={e => handleFabricDetailChange(idx, e)}
+                    onChange={e => handleFabricDetailChange(detail.id, e)}
                     onFocus={() => setFocusedInput({ name: 'fabricFor', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
                     className={`w-28 border rounded px-2 py-1 ${getInputBg('fabricFor', idx)}`}
@@ -164,7 +267,7 @@ export default function FabricEntryFormModal({ onClose }) {
                   <input
                     name="SKU"
                     value={detail.SKU}
-                    onChange={e => handleFabricDetailChange(idx, e)}
+                    onChange={e => handleFabricDetailChange(detail.id, e)}
                     onFocus={() => setFocusedInput({ name: 'SKU', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
                     className={`w-28 border rounded px-2 py-1 ${getInputBg('SKU', idx)}`}
@@ -172,65 +275,119 @@ export default function FabricEntryFormModal({ onClose }) {
                   <label className="font-bold text-blue-900">Meter</label>
                   <input
                     name="meter"
+                    type="number"
+                    step="0.01"
                     value={detail.meter}
-                    onChange={e => handleFabricDetailChange(idx, e)}
+                    onChange={e => handleFabricDetailChange(detail.id, e)}
                     onFocus={() => setFocusedInput({ name: 'meter', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
                     className={`w-28 border rounded px-2 py-1 ${getInputBg('meter', idx)}`}
                   />
                   <label className="font-bold text-blue-900">Rate</label>
-                  <input name="rate" value={detail.rate} onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'rate', idx })}
+                  <input 
+                    name="rate" 
+                    type="number"
+                    step="0.01"
+                    value={detail.rate} 
+                    onChange={e => handleFabricDetailChange(detail.id, e)} 
+                    onFocus={() => setFocusedInput({ name: 'rate', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
-                    className={`w-28 border rounded px-2 py-1 ${getInputBg('rate', idx)}`} />
+                    className={`w-28 border rounded px-2 py-1 ${getInputBg('rate', idx)}`} 
+                  />
                   <label className="col-span-1 font-bold text-blue-900">Amount</label>
-                  <input name="amount" value={detail.amount} readOnly onChange={e => handleFabricDetailChange(idx, e)} className={`w-30 border rounded px-2 py-1 ${getInputBg('amount', idx)}`} />
+                  <input 
+                    name="amount" 
+                    value={detail.amount} 
+                    readOnly 
+                    className={`w-30 border rounded px-2 py-1 bg-gray-100`} 
+                  />
                   <label className="font-bold text-blue-900">Dis%</label>
-                  <input name="disPercent" value={detail.disPercent} onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'disPercent', idx })}
+                  <input 
+                    name="disPercent" 
+                    type="number"
+                    step="0.01"
+                    value={detail.disPercent} 
+                    onChange={e => handleFabricDetailChange(detail.id, e)} 
+                    onFocus={() => setFocusedInput({ name: 'disPercent', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
-                    className={`w-28 border rounded px-2 py-1 ${getInputBg('disPercent', idx)}`} />
+                    className={`w-28 border rounded px-2 py-1 ${getInputBg('disPercent', idx)}`} 
+                  />
                   <label className=" font-bold text-blue-900">Amt</label>
-                  <input name="disAmt" value={detail.disAmt} readOnly onChange={e => handleFabricDetailChange(idx, e)} className={`w-18 border rounded px-2 py-1 ${getInputBg('disAmt', idx)}`} />
-                  {/* <button type="button" onClick={() => handleRemoveFabricRow(idx)} className="col-span-1 px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 ml-2">Remove</button> */}
+                  <input 
+                    name="disAmt" 
+                    value={detail.disAmt} 
+                    readOnly 
+                    className={`w-18 border rounded px-2 py-1 bg-gray-100`} 
+                  />
                 </div>
                 <div className="space-beteween mb-2 gap-4 px-4">
-
                   <label className=" font-bold text-center text-blue-900 px-2">CGST%</label>
-                  <input name="cgstPercent" value={detail.cgstPercent}
-                    onChange={e => handleFabricDetailChange(idx, e)}
+                  <input 
+                    name="cgstPercent" 
+                    type="number"
+                    step="0.01"
+                    value={detail.cgstPercent}
+                    onChange={e => handleFabricDetailChange(detail.id, e)}
                     onFocus={() => setFocusedInput({ name: 'cgstPercent', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
-                    className={`w-28 border rounded px-2 py-1 ${getInputBg('cgstPercent', idx)}`} />
+                    className={`w-28 border rounded px-2 py-1 ${getInputBg('cgstPercent', idx)}`} 
+                  />
                   <label className=" font-bold text-blue-900 px-3">Value</label>
-                  <input name="cgstValue" value={detail.cgstValue} onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'cgstValue', idx })}
-                    onBlur={() => setFocusedInput({ name: '', idx: null })}
-                    className={`w-18 border rounded px-2 py-1 ${getInputBg('cgstValue', idx)}`} />
+                  <input 
+                    name="cgstValue" 
+                    value={detail.cgstValue} 
+                    readOnly 
+                    className={`w-18 border rounded px-2 py-1 bg-gray-100`} 
+                  />
                   <label className=" font-bold text-blue-900 px-3">SGST%</label>
-                  <input name="sgstPercent" value={detail.sgstPercent} onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'sgstPercent', idx })}
+                  <input 
+                    name="sgstPercent" 
+                    type="number"
+                    step="0.01"
+                    value={detail.sgstPercent} 
+                    onChange={e => handleFabricDetailChange(detail.id, e)} 
+                    onFocus={() => setFocusedInput({ name: 'sgstPercent', idx })}
                     onBlur={() => setFocusedInput({ name: '', idx: null })}
-                    className={`w-28 border rounded px-2 py-1 ${getInputBg('sgstPercent', idx)}`} />
+                    className={`w-28 border rounded px-2 py-1 ${getInputBg('sgstPercent', idx)}`} 
+                  />
                   <label className=" font-bold text-blue-900 px-3">Value</label>
-                  <input name="sgstValue" value={detail.sgstValue} onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'sgstValue', idx })}
-                    onBlur={() => setFocusedInput({ name: '', idx: null })}
-                    className={`w-18 border rounded px-2 py-1 ${getInputBg('sgstValue', idx)}`} />
-
+                  <input 
+                    name="sgstValue" 
+                    value={detail.sgstValue} 
+                    readOnly 
+                    className={`w-18 border rounded px-2 py-1 bg-gray-100`} 
+                  />
                   <label className=" font-bold text-blue-900 px-3">DisAmount</label>
-                  <input name="disAmount" value={detail.disAmount} readOnly onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'disAmount', idx })}
-                    onBlur={() => setFocusedInput({ name: '', idx: null })}
-                    className={`w-30 border rounded px-2 py-1 ${getInputBg('disAmount', idx)}`} />
+                  <input 
+                    name="disAmount" 
+                    value={detail.disAmount} 
+                    readOnly 
+                    className={`w-30 border rounded px-2 py-1 bg-gray-100`} 
+                  />
                   <label className=" font-bold text-blue-900 px-3">Final Amount</label>
-                  <input name="finalAmount" value={detail.finalAmount} onChange={e => handleFabricDetailChange(idx, e)} onFocus={() => setFocusedInput({ name: 'finalAmount', idx })}
-                    onBlur={() => setFocusedInput({ name: '', idx: null })}
-                    className={`w-30 border rounded px-2 py-1 ${getInputBg('finalAmount', idx)}`} />
-
-                  <button className="px-6 ml-6 py-2 bg-white border-2 border-green-400 text-blue-900 font-bold rounded hover:bg-blue-50">Add</button>
-
+                  <input 
+                    name="finalAmount" 
+                    value={detail.finalAmount} 
+                    readOnly 
+                    className={`w-30 border rounded px-2 py-1 bg-gray-100`} 
+                  />
                 </div>
-
               </div>
             ))}
-
+            
+            {/* Add Button */}
+            <div className="flex justify-center mt-4">
+              <button 
+                type="button" 
+                onClick={handleAddToTable}
+                className="px-6 py-2 bg-white border-2 border-green-400 text-blue-900 font-bold rounded hover:bg-blue-50"
+              >
+                Add
+              </button>
+            </div>
           </fieldset>
         </div>
+        
         {/* Bottom: Table */}
         <div className="bg-[#f1f2f4] p-2 mt-6 rounded">
           <table className="w-full border text-sm">
@@ -245,27 +402,49 @@ export default function FabricEntryFormModal({ onClose }) {
                 <th className="border px-2 py-1">CGST</th>
                 <th className="border px-2 py-1">SGST</th>
                 <th className="border px-2 py-1">Final Amount</th>
-
+                <th className="border px-2 py-1">Action</th>
               </tr>
             </thead>
             <tbody>
-              {fabricDetails.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-4">*</td></tr>
+              {tableRows.length === 0 ? (
+                <tr><td colSpan={10} className="text-center py-4">No entries added yet</td></tr>
               ) : (
-                fabricDetails.map((row, idx) => (
-                  <tr key={idx}>
-                    <td className="border px-2 py-1">{row.sr}</td>
-
-                    <td className="border px-2 py-1">{row.SKU}</td>
-                    <td className="border px-2 py-1">{row.meter}</td>
-                    <td className="border px-2 py-1">{row.rate}</td>
-                    <td className="border px-2 py-1">{row.amount}</td>
-                    <td className="border px-2 py-1">{row.disAmt}</td>
-                    <td className="border px-2 py-1">{row.cgstValue}</td>
-                    <td className="border px-2 py-1">{row.sgstValue}</td>
-                    <td className="border px-2 py-1">{row.finalAmount}</td>
+                <>
+                  {tableRows.map((row) => (
+                    <tr key={row.id}>
+                      <td className="border px-2 py-1">{row.sr}</td>
+                      <td className="border px-2 py-1">{row.SKU}</td>
+                      <td className="border px-2 py-1">{row.meter}</td>
+                      <td className="border px-2 py-1">{row.rate}</td>
+                      <td className="border px-2 py-1">{row.amount}</td>
+                      <td className="border px-2 py-1">{row.disAmt}</td>
+                      <td className="border px-2 py-1">{row.cgstValue}</td>
+                      <td className="border px-2 py-1">{row.sgstValue}</td>
+                      <td className="border px-2 py-1">{row.finalAmount}</td>
+                      <td className="border px-2 py-1">
+                        <button 
+                          onClick={() => handleRemoveTableRow(row.id)}
+                          className="px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {/* Totals Row */}
+                  <tr className="bg-gray-100 font-bold">
+                    <td className="border px-2 py-1">Total</td>
+                    <td className="border px-2 py-1">-</td>
+                    <td className="border px-2 py-1">{totals.meter.toFixed(2)}</td>
+                    <td className="border px-2 py-1">-</td>
+                    <td className="border px-2 py-1">{totals.amount.toFixed(2)}</td>
+                    <td className="border px-2 py-1">{totals.disAmt.toFixed(2)}</td>
+                    <td className="border px-2 py-1">{totals.cgstValue.toFixed(2)}</td>
+                    <td className="border px-2 py-1">{totals.sgstValue.toFixed(2)}</td>
+                    <td className="border px-2 py-1">{totals.finalAmount.toFixed(2)}</td>
+                    <td className="border px-2 py-1">-</td>
                   </tr>
-                ))
+                </>
               )}
             </tbody>
           </table>
